@@ -1,0 +1,8 @@
+{
+  "name": "agenda-frontend",
+  "version": "1.0.0",
+  "description": "Frontend para agenda diaria",
+  "scripts": {
+    "dev": "npx serve . -p 5500"
+  }
+}

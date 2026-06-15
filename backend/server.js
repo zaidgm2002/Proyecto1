@@ -1,5 +1,14 @@
 const express = require('express');
 const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+console.log('SUPABASE_URL:', supabaseUrl ? 'Encontrada' : 'No encontrada');
+console.log('SUPABASE_KEY:', supabaseKey ? 'Encontrada' : 'No encontrada');
 
 const app = express();
 const PORT = 3000;
@@ -7,67 +16,151 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
-let agenda = [];
-
 //mi endpoint de prueba
 app.get('/api/saludo', (req, res) =>{
   res.json('Hola mundo');
 });
 
-app.get('/api/agenda', (req, res) => {
-  res.json(agenda);
+app.get('/api/usuarios', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .order('creado_en', { ascending: false });
+    
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
 });
 
-app.post('/api/agenda', (req, res) => {
-  const { titulo, descripcion, fecha, hora } = req.body;
-  
-  if (!titulo || !fecha) {
-    return res.status(400).json({ error: 'Titulo y fecha son requeridos' });
+app.post('/api/usuarios', async (req, res) => {
+  try {
+    const { nombre, email, password } = req.body;
+    
+    if (!nombre || !email || !password) {
+      return res.status(400).json({ error: 'Nombre, email y password son requeridos' });
+    }
+
+    const { data, error } = await supabase
+      .from('usuarios')
+      .insert([{ nombre, email, password }])
+      .select();
+    
+    if (error) throw error;
+    res.status(201).json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al crear usuario' });
   }
-
-  const nuevoEvento = {
-    id: Date.now(),
-    titulo,
-    descripcion: descripcion || '',
-    fecha,
-    hora: hora || ''
-  };
-
-  agenda.push(nuevoEvento);
-  res.status(201).json(nuevoEvento);
 });
 
-app.put('/api/agenda/:id', (req, res) => {
-  const { id } = req.params;
-  const { titulo, descripcion, fecha, hora } = req.body;
+app.put('/api/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, email, password } = req.body;
 
-  const index = agenda.findIndex(evento => evento.id === parseInt(id));
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update({ nombre, email, password, actualizado_en: new Date() })
+      .eq('id', id)
+      .select();
 
-  if (index === -1) {
-    return res.status(404).json({ error: 'Evento no encontrado' });
+    if (error) throw error;
+    if (data.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar usuario' });
   }
-
-  agenda[index] = {
-    ...agenda[index],
-    titulo: titulo || agenda[index].titulo,
-    descripcion: descripcion !== undefined ? descripcion : agenda[index].descripcion,
-    fecha: fecha || agenda[index].fecha,
-    hora: hora !== undefined ? hora : agenda[index].hora
-  };
-
-  res.json(agenda[index]);
 });
 
-app.delete('/api/agenda/:id', (req, res) => {
-  const { id } = req.params;
-  const index = agenda.findIndex(evento => evento.id === parseInt(id));
+app.delete('/api/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('usuarios')
+      .delete()
+      .eq('id', id);
 
-  if (index === -1) {
-    return res.status(404).json({ error: 'Evento no encontrado' });
+    if (error) throw error;
+    res.json({ message: 'Usuario eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar usuario' });
   }
+});
 
-  agenda.splice(index, 1);
-  res.json({ message: 'Evento eliminado' });
+// Endpoints de agenda
+app.get('/api/agenda', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('eventos')
+      .select('*')
+      .order('fecha', { ascending: true })
+      .order('hora', { ascending: true });
+    
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener eventos' });
+  }
+});
+
+app.post('/api/agenda', async (req, res) => {
+  try {
+    const { titulo, descripcion, fecha, hora } = req.body;
+    
+    if (!titulo || !fecha) {
+      return res.status(400).json({ error: 'Titulo y fecha son requeridos' });
+    }
+
+    const { data, error } = await supabase
+      .from('eventos')
+      .insert([{ titulo, descripcion: descripcion || '', fecha, hora: hora || '' }])
+      .select();
+    
+    if (error) throw error;
+    res.status(201).json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al crear evento' });
+  }
+});
+
+app.put('/api/agenda/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, descripcion, fecha, hora } = req.body;
+
+    const { data, error } = await supabase
+      .from('eventos')
+      .update({ titulo, descripcion, fecha, hora })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    if (data.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar evento' });
+  }
+});
+
+app.delete('/api/agenda/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('eventos')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    res.json({ message: 'Evento eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar evento' });
+  }
 });
 
 app.listen(PORT, () => {

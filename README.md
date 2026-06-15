@@ -8,7 +8,10 @@ Aplicación sencilla de agenda diaria con backend en Node.js y frontend en JavaS
 Proyecto1/
 ├── backend/
 │   ├── package.json
-│   └── server.js
+│   ├── server.js
+│   ├── models/
+│   │   └── Evento.js
+│   └── .env
 └── frontend/
     ├── index.html
     └── app.js
@@ -64,6 +67,7 @@ npx serve
 
 ## Notas
 
-- No utiliza base de datos, los eventos se almacenan en memoria del servidor
-- Al reiniciar el servidor, los eventos se pierden
+- Utiliza MongoDB Atlas como base de datos para persistencia de eventos
+- Los eventos se mantienen incluso al reiniciar el servidor
+- Configurar archivo `.env` con la URI de conexión a MongoDB Atlas
 - Diseño minimalista y código fácil de leer

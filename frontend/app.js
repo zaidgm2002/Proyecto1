@@ -1,8 +1,94 @@
-const API_URL = 'http://localhost:3000/api/agenda';
+const API_URL = 'http://localhost:3000/api/usuarios';
+const AGENDA_URL = 'http://localhost:3000/api/agenda';
 
-async function cargarEventos() {
+// Navegación entre secciones
+const loginSection = document.getElementById('loginSection');
+const registerSection = document.getElementById('registerSection');
+const agendaSection = document.getElementById('agendaSection');
+
+function showSection(section) {
+  loginSection.classList.add('hidden');
+  registerSection.classList.add('hidden');
+  agendaSection.classList.add('hidden');
+  section.classList.remove('hidden');
+}
+
+// Botones de navegación
+document.getElementById('showRegisterBtn').addEventListener('click', () => {
+  showSection(registerSection);
+});
+
+document.getElementById('showLoginBtn').addEventListener('click', () => {
+  showSection(loginSection);
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('usuario');
+  showSection(loginSection);
+});
+
+// Registro de usuarios
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const usuario = {
+    nombre: document.getElementById('registerNombre').value,
+    email: document.getElementById('registerEmail').value,
+    password: document.getElementById('registerPassword').value
+  };
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(usuario)
+    });
+    
+    if (response.ok) {
+      alert('Usuario registrado exitosamente');
+      e.target.reset();
+      showSection(loginSection);
+    } else {
+      const error = await response.json();
+      alert('Error al registrar usuario: ' + error.error);
+    }
+  } catch (error) {
+    console.error('Error al registrar usuario:', error);
+    alert('Error al registrar usuario');
+  }
+});
+
+// Login de usuarios
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+
   try {
     const response = await fetch(API_URL);
+    const usuarios = await response.json();
+    
+    const usuario = usuarios.find(u => u.email === email && u.password === password);
+    
+    if (usuario) {
+      localStorage.setItem('usuario', JSON.stringify(usuario));
+      alert('Login exitoso');
+      showSection(agendaSection);
+      cargarEventos();
+    } else {
+      alert('Email o password incorrectos');
+    }
+  } catch (error) {
+    console.error('Error al hacer login:', error);
+    alert('Error al hacer login');
+  }
+});
+
+// Funcionalidad de agenda
+async function cargarEventos() {
+  try {
+    const response = await fetch(AGENDA_URL);
     const eventos = await response.json();
     mostrarEventos(eventos);
   } catch (error) {
@@ -41,7 +127,7 @@ function mostrarEventos(eventos) {
 
 async function agregarEvento(evento) {
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(AGENDA_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(evento)
@@ -56,7 +142,7 @@ async function agregarEvento(evento) {
 
 async function actualizarEvento(id, evento) {
   try {
-    const response = await fetch(`${API_URL}/${id}`, {
+    const response = await fetch(`${AGENDA_URL}/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(evento)
@@ -73,7 +159,7 @@ async function eliminarEvento(id) {
   if (!confirm('¿Estás seguro de eliminar este evento?')) return;
   
   try {
-    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    await fetch(`${AGENDA_URL}/${id}`, { method: 'DELETE' });
     cargarEventos();
   } catch (error) {
     console.error('Error al eliminar evento:', error);
@@ -122,4 +208,11 @@ document.getElementById('eventoForm').addEventListener('submit', async (e) => {
   e.target.reset();
 });
 
-cargarEventos();
+// Verificar si hay usuario logueado al cargar la página
+const usuarioGuardado = localStorage.getItem('usuario');
+if (usuarioGuardado) {
+  showSection(agendaSection);
+  cargarEventos();
+} else {
+  showSection(loginSection);
+}
