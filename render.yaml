@@ -10,4 +10,4 @@ services:
       - key: SUPABASE_KEY
         sync: false
       - key: RENDER_URL
-        value: https://agenda-app.onrender.com
+        value: https://proyecto1-rmtf.onrender.com
