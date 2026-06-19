@@ -14,28 +14,9 @@ console.log('SUPABASE_KEY:', supabaseKey ? 'Encontrada' : 'No encontrada');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurar CORS para permitir tanto desarrollo como producción
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5500'
-];
-
-// Agregar URL de Render si está configurada
-if (process.env.RENDER_URL) {
-  allowedOrigins.push(process.env.RENDER_URL);
-}
-
+// Configurar CORS para permitir todos los orígenes (frontend y backend se sirven del mismo origen)
 app.use(cors({
-  origin: function(origin, callback) {
-    // Permitir requests sin origin (como mobile apps o curl)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
+  origin: '*',
   credentials: true
 }));
 
