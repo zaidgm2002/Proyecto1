@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: agenda-app
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: RENDER_URL
+        value: https://agenda-app.onrender.com
