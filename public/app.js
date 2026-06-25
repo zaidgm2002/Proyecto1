@@ -6,11 +6,13 @@ const AGENDA_URL = '/api/agenda';
 const loginSection = document.getElementById('loginSection');
 const registerSection = document.getElementById('registerSection');
 const agendaSection = document.getElementById('agendaSection');
+const mapSection = document.getElementById('mapSection');
 
 function showSection(section) {
   loginSection.classList.add('hidden');
   registerSection.classList.add('hidden');
   agendaSection.classList.add('hidden');
+  mapSection.classList.add('hidden');
   section.classList.remove('hidden');
 }
 
@@ -24,6 +26,21 @@ document.getElementById('showLoginBtn').addEventListener('click', () => {
 });
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('usuario');
+  showSection(loginSection);
+});
+
+// Navegación a sección de mapa
+document.getElementById('mapaBtn').addEventListener('click', () => {
+  showSection(mapSection);
+  initMap();
+});
+
+document.getElementById('backToAgendaBtn').addEventListener('click', () => {
+  showSection(agendaSection);
+});
+
+document.getElementById('logoutBtnMap').addEventListener('click', () => {
   localStorage.removeItem('usuario');
   showSection(loginSection);
 });
@@ -217,3 +234,84 @@ if (usuarioGuardado) {
 } else {
   showSection(loginSection);
 }
+
+// Funcionalidad de mapa
+let map = null;
+let userMarker = null;
+
+function initMap() {
+  if (map) return; // El mapa ya está inicializado
+
+  // Inicializar mapa centrado en una ubicación por defecto
+  map = L.map('map').setView([0, 0], 2);
+
+  // Agregar capa de OpenStreetMap
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+}
+
+function getLocation() {
+  const locationStatus = document.getElementById('locationStatus');
+  const locationInfo = document.getElementById('locationInfo');
+
+  if (!navigator.geolocation) {
+    locationStatus.textContent = 'La geolocalización no es soportada por tu navegador';
+    return;
+  }
+
+  locationStatus.textContent = 'Obteniendo ubicación...';
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      // Actualizar mapa con la ubicación del usuario
+      if (map) {
+        map.setView([lat, lng], 13);
+
+        // Remover marcador anterior si existe
+        if (userMarker) {
+          map.removeLayer(userMarker);
+        }
+
+        // Agregar marcador en la ubicación del usuario
+        userMarker = L.marker([lat, lng]).addTo(map)
+          .bindPopup('📍 Tu ubicación')
+          .openPopup();
+      }
+
+      // Mostrar información de ubicación
+      locationInfo.innerHTML = `
+        <p><strong>Latitud:</strong> ${lat.toFixed(6)}</p>
+        <p><strong>Longitud:</strong> ${lng.toFixed(6)}</p>
+        <p><strong>Precisión:</strong> ${position.coords.accuracy.toFixed(0)} metros</p>
+      `;
+
+      locationStatus.textContent = '✅ Ubicación obtenida';
+    },
+    (error) => {
+      console.error('Error al obtener ubicación:', error);
+      let errorMessage = 'Error al obtener ubicación';
+      
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = 'Permiso de ubicación denegado';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = 'Ubicación no disponible';
+          break;
+        case error.TIMEOUT:
+          errorMessage = 'Tiempo de espera agotado';
+          break;
+      }
+      
+      locationStatus.textContent = '❌ ' + errorMessage;
+      locationInfo.innerHTML = `<p class="text-red-500">${errorMessage}</p>`;
+    }
+  );
+}
+
+// Event listener para botón de obtener ubicación
+document.getElementById('getLocationBtn').addEventListener('click', getLocation);
