@@ -4,5 +4,8 @@
   "description": "Frontend para agenda diaria",
   "scripts": {
     "dev": "npx serve . -p 5500"
+  },
+  "dependencies": {
+    "@clerk/clerk-js": "^6.23.0"
   }
 }

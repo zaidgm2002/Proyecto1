@@ -1,94 +1,110 @@
-const API_URL = 'http://localhost:3000/api/usuarios';
 const AGENDA_URL = 'http://localhost:3000/api/agenda';
 
 // Navegación entre secciones
-const loginSection = document.getElementById('loginSection');
-const registerSection = document.getElementById('registerSection');
+const authSection = document.getElementById('authSection');
 const agendaSection = document.getElementById('agendaSection');
+const mapSection = document.getElementById('mapSection');
 
 function showSection(section) {
-  loginSection.classList.add('hidden');
-  registerSection.classList.add('hidden');
+  authSection.classList.add('hidden');
   agendaSection.classList.add('hidden');
+  mapSection.classList.add('hidden');
   section.classList.remove('hidden');
 }
 
-// Botones de navegación
-document.getElementById('showRegisterBtn').addEventListener('click', () => {
-  showSection(registerSection);
-});
+// Clerk initialization
+const PUBLISHABLE_KEY = 'pk_test_c3VidGxlLXN3YW4tNjcuY2xlcmsuYWNjb3VudHMuZGV2JA';
+let clerk;
 
-document.getElementById('showLoginBtn').addEventListener('click', () => {
-  showSection(loginSection);
-});
-
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  localStorage.removeItem('usuario');
-  showSection(loginSection);
-});
-
-// Registro de usuarios
-document.getElementById('registerForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  const usuario = {
-    nombre: document.getElementById('registerNombre').value,
-    email: document.getElementById('registerEmail').value,
-    password: document.getElementById('registerPassword').value
-  };
-
+// Inicializar Clerk manualmente
+async function initClerk() {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(usuario)
-    });
-    
-    if (response.ok) {
-      alert('Usuario registrado exitosamente');
-      e.target.reset();
-      showSection(loginSection);
-    } else {
-      const error = await response.json();
-      alert('Error al registrar usuario: ' + error.error);
-    }
-  } catch (error) {
-    console.error('Error al registrar usuario:', error);
-    alert('Error al registrar usuario');
-  }
-});
+    console.log('Inicializando Clerk...');
 
-// Login de usuarios
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  const email = document.getElementById('loginEmail').value;
-  const password = document.getElementById('loginPassword').value;
+    await window.Clerk.load();
+    clerk = window.Clerk;
 
-  try {
-    const response = await fetch(API_URL);
-    const usuarios = await response.json();
-    
-    const usuario = usuarios.find(u => u.email === email && u.password === password);
-    
-    if (usuario) {
-      localStorage.setItem('usuario', JSON.stringify(usuario));
-      alert('Login exitoso');
+    console.log('Clerk cargado exitosamente');
+
+    if (clerk.user) {
+      syncUser();
       showSection(agendaSection);
       cargarEventos();
     } else {
-      alert('Email o password incorrectos');
+      clerk.mountSignIn(document.getElementById('clerk-auth'), {
+        appearance: {
+          elements: {
+            card: {
+              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+            }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Error al inicializar Clerk:', err);
+  }
+}
+
+// Hacer initClerk disponible globalmente para el evento onload
+window.initClerk = initClerk;
+
+// Función para obtener el token de Clerk
+async function getAuthToken() {
+  try {
+    const token = await clerk.session?.getToken();
+    return token;
+  } catch (error) {
+    console.error('Error al obtener token:', error);
+    return null;
+  }
+}
+
+// Función para sincronizar usuario con backend
+async function syncUser() {
+  try {
+    const token = await getAuthToken();
+    if (!token) return;
+
+    const response = await fetch('http://localhost:3000/api/sync-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (response.ok) {
+      const userData = await response.json();
+      console.log('Usuario sincronizado:', userData);
     }
   } catch (error) {
-    console.error('Error al hacer login:', error);
-    alert('Error al hacer login');
+    console.error('Error al sincronizar usuario:', error);
+  }
+}
+
+// Inicializar Clerk cuando el DOM esté listo
+document.getElementById('clerk-script').addEventListener('load', initClerk);
+
+// Logout con Clerk
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  try {
+    await clerk.signOut();
+    showSection(authSection);
+    clerk.mountSignIn(document.getElementById('clerk-auth'));
+  } catch (error) {
+    console.error('Error al cerrar sesión:', error);
   }
 });
 
 // Funcionalidad de agenda
 async function cargarEventos() {
   try {
-    const response = await fetch(AGENDA_URL);
+    const token = await getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(AGENDA_URL, { headers });
     const eventos = await response.json();
     mostrarEventos(eventos);
   } catch (error) {
@@ -127,9 +143,13 @@ function mostrarEventos(eventos) {
 
 async function agregarEvento(evento) {
   try {
+    const token = await getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const response = await fetch(AGENDA_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(evento)
     });
     const nuevoEvento = await response.json();
@@ -142,9 +162,13 @@ async function agregarEvento(evento) {
 
 async function actualizarEvento(id, evento) {
   try {
+    const token = await getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const response = await fetch(`${AGENDA_URL}/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(evento)
     });
     const eventoActualizado = await response.json();
@@ -159,7 +183,14 @@ async function eliminarEvento(id) {
   if (!confirm('¿Estás seguro de eliminar este evento?')) return;
   
   try {
-    await fetch(`${AGENDA_URL}/${id}`, { method: 'DELETE' });
+    const token = await getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    await fetch(`${AGENDA_URL}/${id}`, { 
+      method: 'DELETE',
+      headers 
+    });
     cargarEventos();
   } catch (error) {
     console.error('Error al eliminar evento:', error);
@@ -208,11 +239,81 @@ document.getElementById('eventoForm').addEventListener('submit', async (e) => {
   e.target.reset();
 });
 
-// Verificar si hay usuario logueado al cargar la página
-const usuarioGuardado = localStorage.getItem('usuario');
-if (usuarioGuardado) {
+// Funcionalidad del mapa
+let map;
+let marker;
+
+// Botón para ir al mapa
+document.getElementById('mapaBtn').addEventListener('click', () => {
+  showSection(mapSection);
+  if (!map) {
+    initMap();
+  }
+});
+
+// Botón para volver a la agenda
+document.getElementById('backToAgendaBtn').addEventListener('click', () => {
   showSection(agendaSection);
-  cargarEventos();
-} else {
-  showSection(loginSection);
+});
+
+// Logout desde el mapa
+document.getElementById('logoutBtnMap').addEventListener('click', async () => {
+  try {
+    await clerk.signOut();
+    showSection(authSection);
+    clerk.mountSignIn(document.getElementById('clerk-auth'));
+  } catch (error) {
+    console.error('Error al cerrar sesión:', error);
+  }
+});
+
+// Inicializar mapa de Leaflet
+function initMap() {
+  map = L.map('map').setView([0, 0], 2);
+  
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
 }
+
+// Obtener ubicación del usuario
+document.getElementById('getLocationBtn').addEventListener('click', () => {
+  const statusDiv = document.getElementById('locationStatus');
+  const infoDiv = document.getElementById('locationInfo');
+  
+  if (!navigator.geolocation) {
+    statusDiv.textContent = 'Geolocalización no soportada por tu navegador';
+    return;
+  }
+  
+  statusDiv.textContent = 'Obteniendo ubicación...';
+  
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      
+      // Actualizar mapa
+      map.setView([latitude, longitude], 15);
+      
+      // Remover marcador anterior si existe
+      if (marker) {
+        map.removeLayer(marker);
+      }
+      
+      // Agregar nuevo marcador
+      marker = L.marker([latitude, longitude]).addTo(map);
+      
+      // Mostrar información
+      statusDiv.textContent = 'Ubicación obtenida';
+      infoDiv.innerHTML = `
+        <p class="text-gray-700"><strong>Latitud:</strong> ${latitude.toFixed(6)}</p>
+        <p class="text-gray-700"><strong>Longitud:</strong> ${longitude.toFixed(6)}</p>
+        <p class="text-gray-700"><strong>Precisión:</strong> ${position.coords.accuracy.toFixed(0)} metros</p>
+      `;
+    },
+    (error) => {
+      statusDiv.textContent = 'Error al obtener ubicación';
+      infoDiv.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+    }
+  );
+});
